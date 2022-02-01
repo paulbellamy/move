@@ -52,9 +52,9 @@ compiled_package_info:
     ? address: "00000000000000000000000000000001"
       name: Vector
     : Std
-  source_digest: B185EAC626F47EA43E7DCF7404016B0C2738ECB40D9369FFF04020B75146555F
+  source_digest: 14259EFF2DED83C706868F3E21ED36B5FB0593BF417B979BCBC55C6B51DE0244
   build_flags:
-    dev_mode: false
+    dev_mode: true
     test_mode: false
     generate_docs: false
     generate_abis: false
