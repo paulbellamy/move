@@ -1,6 +1,6 @@
 address 0x42 {
     module Guestbook {
-        // Abusing the storage system to do a centralized ledger. ERC20 airdrop style
+        // Abusing the storage system to do a "centralized" storage, that grows forever.
         use Std::Signer;
         use Std::Vector;
 
