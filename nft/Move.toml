@@ -1,0 +1,10 @@
+[package]
+name = "move-nft"
+version = "0.0.0"
+
+[addresses]
+# ?? What is this doing?
+Std = "0x1" # Specify and assign 0x1 to the named address "Std"
+
+[dependencies]
+MoveNursery = { git = "https://github.com/diem/move.git", subdir = "language/move-stdlib/nursery", rev="d45f20a" }
