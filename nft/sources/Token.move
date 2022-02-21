@@ -3,26 +3,25 @@ address 0x1 {
         use Std::Signer;
         use Std::Vector;
 
-        struct Token has store, key {
-            // Array of ids owned by a user here, because you can only store one Token per address,
-            // afaict. This is a faff though, because now you have to join/split them.
-            ids: vector<u64>,
+        struct Token has store {
+            id: u64,
+        }
+
+        struct Collection has key {
+            // Array of tokens owned by a user here, because you can only store one Token per
+            // address. This is a faff though, because now you have to join/split them.
+            tokens: vector<Token>,
             size: u64,
         }
 
-        struct TokenInfo has store, key {
-            name: vector<u8>
+        struct TokenInfo has key {
+            name: vector<u8>,
+            lastId: u64
+
         }
 
-        struct HasMinted has store, key {
-            nonces: vector<u64>,
-            size: u64
-        }
-
-        public fun init(creator: &signer, name: vector<u8>): address {
-            // Set up the token info on the creator's account?
-            move_to(creator, TokenInfo{ name });
-            Signer::address_of(creator)
+        public fun init(creator: &signer, name: vector<u8>) {
+            move_to(creator, TokenInfo{ name, lastId: 0 });
         }
 
         public fun name(creator: address): vector<u8> acquires TokenInfo {
@@ -30,41 +29,38 @@ address 0x1 {
             *&info.name
         }
 
-        public fun mint(_addr: &signer, id: u64, _nonce: u64): Token {
-            // thinking through how you would issue nonces and check them allowing limited number
-            // of mints per address.
-            //
-            // let address = Signer::address_of(addr);
-            // if (!exists<HasMinted>(addr)) {
-            //     move_to(address, HasMinted{
-            //         nonces: Vector::singleton(nonce)
-            //     });
-            // } else {
-            //     let hasMinted = &mut borrow_global_mut<HasMinted>(address);
-            //     Vector::append<u64>(&mut hasMinted.nonces, nonce);
-            // };
-            Token { ids: Vector::singleton(id), size: 1 }
+        public fun mint(creator: address, user: &signer ) acquires Collection, TokenInfo {
+            let id = &mut borrow_global_mut<TokenInfo>(creator).lastId;
+            *id = *id + 1;
+
+            let token = Token { id: *id };
+            store(
+              user,
+              Collection { tokens: Vector::singleton(token), size: 1 }
+            );
         }
 
-        public fun get(addr: address): Token acquires Token {
-            move_from<Token>(addr)
+        // Whoopsie! I just let anyone steal your NFTs! You need a signer to put stuff INTO your
+        // storage, but anyone can take it out (if the module allows it).
+        public fun get(user: address): Collection acquires Collection {
+            move_from<Collection>(user)
         }
 
-        public fun store(address: &signer, token: Token) acquires Token {
-            let addr = Signer::address_of(address);
-            if (exists<Token>(addr)) {
-                let existing = get(addr);
-                token = join(existing, token);
+        public fun store(user: &signer, b: Collection) acquires Collection {
+            if (!exists<Collection>(Signer::address_of(user))) {
+                move_to(user, Collection{tokens: Vector::empty(), size: 0})
             };
-            move_to(address, token)
+            let a = move_from<Collection>(Signer::address_of(user));
+            let c = join(a, b);
+            move_to(user, c);
         }
 
-        public fun size(token: &Token): &u64 {
-            &token.size
+        public fun size(collection: &Collection): &u64 {
+            &collection.size
         }
 
-        public fun ids(token: &Token): &vector<u64> {
-            &token.ids
+        public fun tokens(collection: &Collection): &vector<Token> {
+            &collection.tokens
         }
 
         public fun tokenUri(_id: &u64): vector<u8> {
@@ -76,42 +72,42 @@ address 0x1 {
         }
 
         // TODO: Ensure uniqueness
-        public fun join(a: Token, b: Token): Token {
-            let Token { ids: aIds, size: aSize } = a;
-            let Token { ids: bIds, size: bSize } = b;
-            let ids = Vector::empty<u64>();
-            Vector::append(&mut ids, aIds);
-            Vector::append(&mut ids, bIds);
-            Token { ids, size: aSize + bSize }
+        public fun join(a: Collection, b: Collection): Collection {
+            let Collection { tokens: aIds, size: aSize } = a;
+            let Collection { tokens: bIds, size: bSize } = b;
+            let tokens = Vector::empty<Token>();
+            Vector::append(&mut tokens, aIds);
+            Vector::append(&mut tokens, bIds);
+            Collection { tokens, size: aSize + bSize }
         }
 
-        // TODO: Implement this properly
-        public fun split(token: Token, id: u64): (Token, Token) {
-            let Token { ids, size } = token;
-            let a = Vector::empty<u64>();
-            let b = Vector::empty<u64>();
-            let i = 0;
-            while (i < size) {
-                let x = Vector::pop_back(&mut ids);
-                if (x == id) {
-                    Vector::push_back(&mut b, x);
-                } else {
-                    Vector::push_back(&mut a, x);
-                };
-                i = i + 1
-            };
+        // // TODO: Implement this properly
+        // public fun split(collection: Collection, id: u64): (Collection, Collection) {
+        //     let Collection { tokens, size } = collection;
+        //     let a = Vector::empty<Token>();
+        //     let b = Vector::empty<Token>();
+        //     let i = 0;
+        //     while (i < size) {
+        //         let x = Vector::pop_back(&mut tokens);
+        //         if (x.id == id) {
+        //             Vector::push_back(&mut b, x);
+        //         } else {
+        //             Vector::push_back(&mut a, x);
+        //         };
+        //         i = i + 1
+        //     };
 
-            (Token { ids: a, size: size - 1 }, Token { ids: b, size: 1 })
-        }
+        //     (Collection { tokens: a, size: size - 1 }, Collection { tokens: b, size: 1 })
+        // }
 
-        spec split {
-            token: Token;
-            ensures token.size > 1;
-        }
+        // spec split {
+        //     token: Token;
+        //     ensures token.size > 1;
+        // }
 
-        public fun burn(token: Token): vector<u64> {
-            let Token { ids, size: _size } = token;
-            ids
+        public fun burn(token: Token): u64 {
+            let Token { id } = token;
+            id
         }
     }
 }
