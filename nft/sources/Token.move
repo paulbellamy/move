@@ -40,10 +40,8 @@ address 0x1 {
             );
         }
 
-        // Whoopsie! I just let anyone steal your NFTs! You need a signer to put stuff INTO your
-        // storage, but anyone can take it out (if the module allows it).
-        public fun get(user: address): Collection acquires Collection {
-            move_from<Collection>(user)
+        public fun get(user: signer): Collection acquires Collection {
+            move_from<Collection>(Signer::address_of(&user))
         }
 
         public fun store(user: &signer, b: Collection) acquires Collection {
@@ -63,12 +61,33 @@ address 0x1 {
             &collection.tokens
         }
 
-        public fun tokenUri(_id: &u64): vector<u8> {
+        public fun tokenUri(id: &u64): vector<u8> {
             let uri = Vector::empty<u8>();
             Vector::append(&mut uri, b"ipfs://QmZHKZDavkvNfA9gSAg7HALv8jF7BJaKjUc9U2LSuvUySB/");
-            // Vector::append(&mut uri, id);
+            Vector::append(&mut uri, itoa(id));
             Vector::append(&mut uri, b".json");
             uri
+        }
+
+        // Language doesn't provide this... :(
+        fun itoa(num: &u64): vector<u8> {
+            if (*num == 0) {
+                return b"0"
+            };
+
+            let str = Vector::empty<u8>();
+            let size = 0;
+            while (*num != 0) {
+                let rem = *num % 10;
+                // 48 is char 0
+                let c : u8 = (rem as u8) + 48;
+                Vector::push_back(&mut str, c);
+                num = &(*num / 10);
+                size = size + 1
+            };
+
+            Vector::reverse(&mut str);
+            str
         }
 
         // TODO: Ensure uniqueness
